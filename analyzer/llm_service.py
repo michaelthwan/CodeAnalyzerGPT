@@ -8,6 +8,7 @@ from analyzer.util import get_config
 
 timeout_bot_msg = 'Request timeout. Network error'
 LLM_MODEL = "gpt-3.5-turbo"
+SYSTEM_PROMPT = "be a coding copilot and assist developer's code reading."
 
 # This piece of code heavily reference
 # - https://github.com/GaiZhenbiao/ChuanhuChatGPT
@@ -28,7 +29,7 @@ class LLMService:
         return chunk
 
     @staticmethod
-    def generate_payload(config, inputs, history, system_prompt, stream):
+    def generate_payload(inputs, history, stream):
         API_KEY = config['openai_api_key']
         headers = {
             "Content-Type": "application/json",
@@ -37,7 +38,7 @@ class LLMService:
 
         conversation_cnt = len(history) // 2
 
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         if conversation_cnt:
             for index in range(0, 2 * conversation_cnt, 2):
                 what_i_have_asked = {}
@@ -74,14 +75,15 @@ class LLMService:
         return headers, payload
 
     @staticmethod
-    def predict(inputs, chatbot=[], history=[], system_prompt='', stream=True):
+    def predict(inputs, chatbot=[], history=[]):
+        stream = True  # FIXME: better handling
         if stream:
             raw_input = inputs
             logging.info(f'[raw_input] {raw_input}')
             chatbot.append((inputs, ""))
             yield chatbot, history, "Calling..."
 
-        headers, payload = LLMService.generate_payload(config, inputs, history, system_prompt, stream)
+        headers, payload = LLMService.generate_payload(inputs, history, stream)
         history.append(inputs)
         history.append(" ")
 

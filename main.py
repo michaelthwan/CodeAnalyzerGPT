@@ -40,7 +40,7 @@ if __name__ == '__main__':
         output_combo = [chatbot, history]
         predict_args = dict(fn=LLMService.predict, inputs=input_combo, outputs=output_combo)
         for fn_key in functions:
-            click_handle = functions[fn_key]["btn"].click(LLMService.predict, [*input_combo, gr.State(True), gr.State(fn_key)], output_combo)
+            click_handle = functions[fn_key]["btn"].click(LLMService.predict, input_combo, output_combo)
             cancel_handles.append(click_handle)
 
     demo.title = "CodeAnalyzerGPT"
