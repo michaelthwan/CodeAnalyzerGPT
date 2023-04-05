@@ -1,11 +1,17 @@
 import os
 import gradio as gr
-from util import get_config
-import logging
+from analyzer.util import get_config
+from analyzer.code_analyzer import analyze_project
+from analyzer.llm_service import LLMService
 
 initial_prompt = "Be a code explainer"
 title_html = "<h1 align=\"center\">CodeAnalyzerGPT</h1>"
 os.makedirs("analyzer_logs", exist_ok=True)
+
+functions = {"Analyze code base": {
+    "Function": analyze_project
+}}
+cancel_handles = []
 
 if __name__ == '__main__':
     config = get_config()
@@ -16,7 +22,8 @@ if __name__ == '__main__':
                 with gr.Row():
                     txt = gr.Textbox(show_label=False, placeholder="Input your project folder").style(container=False)
                 with gr.Row():
-                    gr.Button("Analyze code base", variant="primary")
+                    for fn_key in functions:
+                        functions[fn_key]["btn"] = gr.Button("Analyze code base", variant="primary")
                 with gr.Row():
                     txt_qa = gr.Textbox(show_label=False, placeholder="Ask questions").style(container=False)
                 with gr.Row():
@@ -29,7 +36,12 @@ if __name__ == '__main__':
             with gr.Column(scale=3):
                 chatbot = gr.Chatbot()
                 history = gr.State([])
+        input_combo = [txt, chatbot, history]
+        output_combo = [chatbot, history]
+        predict_args = dict(fn=LLMService.predict, inputs=input_combo, outputs=output_combo)
+        for fn_key in functions:
+            click_handle = functions[fn_key]["btn"].click(LLMService.predict, [*input_combo, gr.State(True), gr.State(fn_key)], output_combo)
+            cancel_handles.append(click_handle)
 
     demo.title = "CodeAnalyzerGPT"
-    demo.queue(concurrency_count=config['gradio']['concurrent']) \
-        .launch(share=True)
+    demo.queue(concurrency_count=config['gradio']['concurrent']).launch(share=True)
