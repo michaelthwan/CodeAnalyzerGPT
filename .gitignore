@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 /.idea/*
 config_secret.yaml
+*report*.md

@@ -20,6 +20,12 @@ config = get_config()
 
 class LLMService:
     @staticmethod
+    def report_execption(chatbot, history, a, b):
+        chatbot.append((a, b))
+        history.append(a)
+        history.append(b)
+
+    @staticmethod
     def get_full_error(chunk, stream_response):
         while True:
             try:
