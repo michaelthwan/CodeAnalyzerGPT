@@ -6,28 +6,43 @@ from analyzer.gradio_math_util import convert as convert_math
 
 title_html = "<h1 align=\"center\">CodeAnalyzerGPT</h1>"
 
-functions = {
-    "Analyze code base": {
-        "function": CodeAnalyzerService.analyze_python_project
-    },
-    "Ask": {
-        "function": CodeAnalyzerService.ask_question
-    },
-    "Test formatting": {
-        "function": CodeAnalyzerService.test_formatting
-    },
-    "Test asking": {
-        "function": CodeAnalyzerService.test_asking
-    },
-}
-
 cancel_handles = []
 
 
 class GradioUIService:
     @staticmethod
+    def get_functions():
+        functions = {
+            "Analyze code base": {
+                "function": CodeAnalyzerService.analyze_python_project,
+            },
+            "Ask": {
+                "function": CodeAnalyzerService.ask_question
+            },
+            "Test formatting": {
+                "function": CodeAnalyzerService.test_formatting
+            },
+            "Test asking": {
+                "function": CodeAnalyzerService.test_asking
+            },
+        }
+        return functions
+
+    @staticmethod
+    def post_define_functions(functions, folder_md):
+        """Append extra gradio objects to functions after creating gradio objects"""
+        functions["Analyze code base"]["extra_outputs"] = [folder_md]
+        return functions
+
+    @staticmethod
     def get_gradio_ui():
+        def get_extra_outputs(functions, fn_key):
+            if functions[fn_key].get('extra_outputs'):
+                return functions[fn_key]['extra_outputs']
+            return []
+
         gr.Chatbot.postprocess = GradioUIService.format_io
+        functions = GradioUIService.get_functions()
         # with gr.Blocks(theme=gr.themes.Soft(), css=GradioUIService.get_css()) as demo:
         with gr.Blocks(theme=GradioUIService.get_theme(), css=GradioUIService.get_css()) as demo:
             gr.HTML(title_html)
@@ -37,6 +52,9 @@ class GradioUIService:
                         project_folder_textbox = gr.Textbox(show_label=False, placeholder="Input your project folder").style(container=False)
                     with gr.Row():
                         functions["Analyze code base"]["btn"] = gr.Button("Analyze code base", variant="primary")
+                    with gr.Row().style(equal_height=True):
+                        gr.Markdown(f"Status: ")
+                        status_md = gr.Markdown(f"Normal")
                     with gr.Row():
                         folder_md = gr.Markdown(f"Waiting for project folder input")
                     with gr.Row():
@@ -57,19 +75,26 @@ class GradioUIService:
                     chatbot = gr.Chatbot()
                     chatbot.style(height=1100)
                     history = gr.State([])
-            # handle click(=submit) and cancel behaviour
+            # after creating gradio objects, append to functions to centralize things.
+            functions = GradioUIService.post_define_functions(functions, folder_md)
+            #### handle click(=submit) and cancel behaviour
+            # Standard inputs/outputs (global for all actions)
             inputs = [project_folder_textbox, qa_textbox, chatbot, history]
-            outputs = [chatbot, history]
+            outputs = [chatbot, history, status_md]
             # project_folder_textbox
-            analyze_code_base_args = dict(fn=functions["Analyze code base"]["function"], inputs=inputs, outputs=outputs)
+            fn_key = "Analyze code base"
+            analyze_code_base_args = dict(fn=functions[fn_key]["function"], inputs=inputs, outputs=[*outputs, folder_md])
             cancel_handles.append(project_folder_textbox.submit(**analyze_code_base_args))
             # qa_textbox
-            ask_args = dict(fn=functions["Ask"]["function"], inputs=inputs, outputs=outputs)
+            fn_key = "Ask"
+            ask_args = dict(fn=functions[fn_key]["function"], inputs=inputs, outputs=outputs)
             cancel_handles.append(qa_textbox.submit(**ask_args))
             # all buttons
             for fn_key in functions:
-                click_handle = functions[fn_key]["btn"].click(functions[fn_key]["function"], inputs, outputs)
+                click_handle = functions[fn_key]["btn"].click(fn=functions[fn_key]["function"], inputs=inputs, outputs=[*outputs, *get_extra_outputs(functions, fn_key)])
                 cancel_handles.append(click_handle)
+            stop_btn.click(fn=None, inputs=None, outputs=None, cancels=cancel_handles)
+            reset_btn.click(fn=lambda: ([], [], "Already reset"), inputs=None, outputs=outputs)
         demo.title = "CodeAnalyzerGPT"
         return demo
 

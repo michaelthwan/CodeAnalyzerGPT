@@ -1,7 +1,10 @@
+import glob
 import os
 import time
 
 from analyzer.chatgpt_service import LLMService, ChatGPTService
+
+WAITING_FOR_PF_INPUT = "Waiting for project folder input"
 
 
 class CodeAnalyzerService:
@@ -14,8 +17,8 @@ class CodeAnalyzerService:
         import os, time
         if file_name is None:
             file_name = 'chatGPT_report' + time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()) + '.md'
-        os.makedirs('./gpt_log/', exist_ok=True)
-        with open(f'./gpt_log/{file_name}', 'w', encoding='utf8') as f:
+        os.makedirs('./analyzer_logs/', exist_ok=True)
+        with open(f'./analyzer_logs/{file_name}', 'w', encoding='utf8') as f:
             f.write('# chatGPT report\n')
             for i, content in enumerate(history):
                 try:
@@ -31,70 +34,80 @@ class CodeAnalyzerService:
         return res
 
     @staticmethod
-    def analyze_project(file_manifest, project_folder, chatbot, history):
+    def get_project_folder_md(project_folder_textbox):
+        return f"Current:\n{project_folder_textbox}"
+
+    @staticmethod
+    def analyze_project(file_manifest, pf_md, project_folder, chatbot, history):
         print('begin analysis on:', file_manifest)
         for index, fp in enumerate(file_manifest):
             status = 'Normal'
             with open(fp, 'r', encoding='utf-8') as f:
                 file_content = f.read()
 
-            prefix = "Next, please analyze the following project file by file" if index == 0 else ""
+            prefix = "Please analyze the following files.\n" if index == 0 else ""
             i_say = prefix + f'Please make a summary of the following program file. File name: {os.path.relpath(fp, project_folder)}. Source code: ```{file_content}```'
-            i_say_show_user = prefix + f'[{index}/{len(file_manifest)}] Please make a summary of the following program file: {os.path.abspath(fp)}'
-            chatbot.append((i_say_show_user, "[Local Message] waiting gpt response."))
-            yield chatbot, history, status
+            i_say_show_user = prefix + f'[{index + 1}/{len(file_manifest)}] Please make a summary of the following program file: {os.path.abspath(fp)}'
+            chatbot.append((i_say_show_user, "[INFO] waiting for ChatGPT's response."))
+            yield chatbot, history, status, pf_md
 
             # ** gpt request **
-            gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(i_say, i_say_show_user, chatbot, history=[])
+            gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(pf_md, i_say, i_say_show_user, chatbot, history=[])
 
             chatbot[-1] = (i_say_show_user, gpt_say)
             history.append(i_say_show_user)
             history.append(gpt_say)
-            yield chatbot, history, status
+            yield chatbot, history, status, pf_md
             time.sleep(2)
 
         all_file = ', '.join([os.path.relpath(fp, project_folder) for index, fp in enumerate(file_manifest)])
         i_say = f'Based on your own analysis above, make a summary of the overall functionality and architecture of the program. Then use a markdown table to explain the functionality of each file (including {all_file}).'
-        chatbot.append((i_say, "[Local Message] waiting gpt response."))
-        yield chatbot, history, 'Normal'
+        chatbot.append((i_say, "[INFO] waiting for ChatGPT's response."))
+        yield chatbot, history, status, pf_md
 
         # ** gpt request **
-        gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(i_say, i_say, chatbot, history=history)
+        gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(pf_md, i_say, i_say, chatbot, history=history)
 
         chatbot[-1] = (i_say, gpt_say)
         history.append(i_say)
         history.append(gpt_say)
-        yield chatbot, history, status
+        yield chatbot, history, status, pf_md
         res = CodeAnalyzerService.write_results_to_file(history)
         chatbot.append(("Completed? ", res))
-        yield chatbot, history, status
+        yield chatbot, history, status, pf_md
 
     @staticmethod
-    def analyze_python_project(txt, qa_textbox, chatbot, history):
+    def analyze_python_project(project_folder_textbox, qa_textbox, chatbot, history):
         history = []
-        import glob, os
-        if os.path.exists(txt):
-            project_folder = txt
-        else:
-            if txt == "": txt = 'Empty input'
-            LLMService.report_execption(chatbot, history, a=f"Project analyzed: {txt}", b=f"Cannot find project / no permission to read: {txt}")
-            yield chatbot, history, 'Normal'
-            return
+        pf_md = CodeAnalyzerService.get_project_folder_md(project_folder_textbox)  # pf_md = project folder markdown
+
+        if not os.path.exists(project_folder_textbox):
+            if project_folder_textbox == "":
+                project_folder_textbox = 'Empty input'
+                LLMService.report_exception(chatbot, history,
+                                            a=f"Project folder analyzed: {project_folder_textbox}",
+                                            b=f"Cannot find the project folder / no permission to read: {project_folder_textbox}")
+                yield chatbot, history, 'Normal', WAITING_FOR_PF_INPUT
+                return
+
+        project_folder = project_folder_textbox
         file_manifest = [f for f in glob.glob(f'{project_folder}/**/*.py', recursive=True)]
         if len(file_manifest) == 0:
-            LLMService.report_execption(chatbot, history, a=f"Project analyzed: {txt}", b=f"Cannnot find any .py file: {txt}")
-            yield chatbot, history, 'Normal'
+            LLMService.report_exception(chatbot, history,
+                                        a=f"Project folder analyzed: {project_folder_textbox}",
+                                        b=f"Cannnot find any .py files: {project_folder_textbox}")
+            yield chatbot, history, 'Normal', WAITING_FOR_PF_INPUT
             return
-        yield from CodeAnalyzerService.analyze_project(file_manifest, project_folder, chatbot, history)
+        yield from CodeAnalyzerService.analyze_project(file_manifest, pf_md, project_folder, chatbot, history)
 
     @staticmethod
-    def ask_question(txt, qa_textbox, chatbot, history):
+    def ask_question(project_folder_textbox, qa_textbox, chatbot, history):
         msg = f"ask_question(`{qa_textbox}`)"
         chatbot.append(("test prompt query", msg))
         yield chatbot, history, 'Normal'
 
     @staticmethod
-    def test_asking(txt, qa_textbox, chatbot, history):
+    def test_asking(project_folder_textbox, qa_textbox, chatbot, history):
         msg = f"test_ask(`{qa_textbox}`)"
         chatbot.append(("test prompt query", msg))
         yield chatbot, history, 'Normal'

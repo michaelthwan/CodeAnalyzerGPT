@@ -23,7 +23,7 @@ config = get_config()
 
 class LLMService:
     @staticmethod
-    def report_execption(chatbot, history, a, b):
+    def report_exception(chatbot, history, a, b):
         chatbot.append((a, b))
         history.append(a)
         history.append(b)
@@ -182,7 +182,7 @@ class ChatGPTService:
                         return
 
     @staticmethod
-    def predict_no_ui_but_counting_down(i_say, i_say_show_user, chatbot, history=[], long_connection=True):
+    def predict_no_ui_but_counting_down(pf_md, i_say, i_say_show_user, chatbot, history=[]):
 
         TIMEOUT_SECONDS, MAX_RETRY = config['openai']['timeout_sec'], config['openai']['max_retry']
         # When multi-threaded, you need a mutable structure to pass information between different threads
@@ -222,11 +222,12 @@ class ChatGPTService:
         while thread_name.is_alive():
             cnt += 1
             chatbot[-1] = (i_say_show_user, f"[Local Message] {mutable_list[1]}waiting gpt response {cnt}/{TIMEOUT_SECONDS * 2 * (MAX_RETRY + 1)}" + ''.join(['.'] * (cnt % 4)))
-            yield chatbot, history, 'Normal'
+            yield chatbot, history, 'Normal', pf_md
             time.sleep(1)
         # Get the output of gpt out of the mutable
         gpt_say = mutable_list[0]
-        if gpt_say == '[Local Message] Failed with timeout.': raise TimeoutError
+        if gpt_say == '[Local Message] Failed with timeout.':
+            raise TimeoutError
         return gpt_say
 
     @staticmethod
