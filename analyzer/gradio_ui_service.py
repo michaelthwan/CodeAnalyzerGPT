@@ -2,6 +2,7 @@ import gradio as gr
 import markdown
 
 from analyzer.code_analyzer import CodeAnalyzerService
+from analyzer.gradio_math_util import convert as convert_math
 
 title_html = "<h1 align=\"center\">CodeAnalyzerGPT</h1>"
 
