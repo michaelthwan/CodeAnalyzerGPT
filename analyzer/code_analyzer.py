@@ -70,7 +70,7 @@ class CodeAnalyzerService:
         yield chatbot, history, status
 
     @staticmethod
-    def analyze_python_project(txt, chatbot, history):
+    def analyze_python_project(txt, qa_textbox, chatbot, history):
         history = []
         import glob, os
         if os.path.exists(txt):
@@ -88,11 +88,19 @@ class CodeAnalyzerService:
         yield from CodeAnalyzerService.analyze_project(file_manifest, project_folder, chatbot, history)
 
     @staticmethod
-    def ask_question():
-        pass
+    def ask_question(txt, qa_textbox, chatbot, history):
+        msg = f"ask_question(`{qa_textbox}`)"
+        chatbot.append(("test prompt query", msg))
+        yield chatbot, history, 'Normal'
 
     @staticmethod
-    def test_formatting(txt, chatbot, history):
+    def test_asking(txt, qa_textbox, chatbot, history):
+        msg = f"test_ask(`{qa_textbox}`)"
+        chatbot.append(("test prompt query", msg))
+        yield chatbot, history, 'Normal'
+
+    @staticmethod
+    def test_formatting(txt, qa_textbox, chatbot, history):
         msg = r"""
 程序整体功能：CodeAnalyzerGPT工程是一个用于自动化代码分析和评审的工具。它使用了OpenAI的GPT模型对代码进行分析，然后根据一定的规则和标准来评价代码的质量和合规性。
 
@@ -118,20 +126,33 @@ Overall, this program consists of the following files:
 - `test/`: This directory contains test scripts for `model.py` and `util.py`
 - `util.py`: This file provides utility functions for the program such as getting the root directory of the project and reading configuration files.
 
-| File | Functionality |
-|------|---------------|
-| main.py | Provides the primary script for the program. Analyzes and summarizes Python code using NLP. |
-| model.py | Defines the `CodeModel` class that models the code as graphs and performs operations on them. |
-| parser.py | Contains custom parsing functions used by `model.py`. |
-| test/ | Contains test scripts for `model.py` and `util.py` |
-| util.py | Provides utility functions such as getting the root directory of the project and reading configuration files. |
-
 `util.py` specifically has two functions:
 
 | Function | Input | Output | Functionality |
 |----------|-------|--------|---------------|
 | `get_project_root()` | None | String containing the path of the parent directory of the script itself | Finds the path of the parent directory of the script itself |
 | `get_config()` | None | Dictionary containing the contents of `config.yaml` and `config_secret.yaml`, merged together (with `config_secret.yaml` overwriting any keys with the same name in `config.yaml`) | Reads and merges two YAML configuration files (`config.yaml` and `config_secret.yaml`) located in the `config` directory in the parent directory of the script. Returns the resulting dictionary. |The above material has been written in C:\github\!CodeAnalyzerGPT\CodeAnalyzerGPT\analyzer_logs\chatGPT_report2023-04-07-14-11-55.md
+
+The Hessian matrix is a square matrix that contains information about the second-order partial derivatives of a function. Suppose we have a function $f(x_1,x_2,...,x_n)$ which is twice continuously differentiable. Then the Hessian matrix $H(f)$ of $f$ is defined as the $n\times n$ matrix:
+
+$$H(f) = \begin{bmatrix} \frac{\partial^2 f}{\partial x_1^2} & \frac{\partial^2 f}{\partial x_1 \partial x_2} & \cdots & \frac{\partial^2 f}{\partial x_1 \partial x_n} \ \frac{\partial^2 f}{\partial x_2 \partial x_1} & \frac{\partial^2 f}{\partial x_2^2} & \cdots & \frac{\partial^2 f}{\partial x_2 \partial x_n} \ \vdots & \vdots & \ddots & \vdots \ \frac{\partial^2 f}{\partial x_n \partial x_1} & \frac{\partial^2 f}{\partial x_n \partial x_2} & \cdots & \frac{\partial^2 f}{\partial x_n^2} \ \end{bmatrix}$$
+
+Each element in the Hessian matrix is the second-order partial derivative of the function with respect to a pair of variables, as shown in the matrix above
+
+Here's an example Python code using SymPy module to get the derivative of a mathematical function:
+
+```
+import sympy as sp
+
+x = sp.Symbol('x')
+f = input('Enter a mathematical function in terms of x: ')
+expr = sp.sympify(f)
+
+dfdx = sp.diff(expr, x)
+print('The derivative of', f, 'is:', dfdx)
+```
+
+This code will prompt the user to enter a mathematical function in terms of x and then use the `diff()` function from SymPy to calculate its derivative with respect to x. The result will be printed on the screen.
 
     """
         chatbot.append(("test prompt query", msg))
