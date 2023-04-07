@@ -1,8 +1,9 @@
 import os
+
 import gradio as gr
+
+from analyzer.code_analyzer import CodeAnalyzerService
 from analyzer.util import get_config
-from analyzer.code_analyzer import BotService
-from analyzer.llm_service import LLMService
 
 initial_prompt = "Be a code explainer"
 title_html = "<h1 align=\"center\">CodeAnalyzerGPT</h1>"
@@ -10,10 +11,10 @@ os.makedirs("analyzer_logs", exist_ok=True)
 
 functions = {
     "Analyze code base": {
-        "function": BotService.analyze_python_project
+        "function": CodeAnalyzerService.analyze_python_project
     },
     "Ask": {
-        "function": BotService.ask_question
+        "function": CodeAnalyzerService.ask_question
     }
 }
 cancel_handles = []
@@ -43,7 +44,7 @@ if __name__ == '__main__':
                 history = gr.State([])
         input_combo = [txt, chatbot, history]
         output_combo = [chatbot, history]
-        predict_args = dict(fn=LLMService.predict, inputs=input_combo, outputs=output_combo)
+        # predict_args = dict(fn=ChatGPTService.ask_chatgpt, inputs=input_combo, outputs=output_combo)
         for fn_key in functions:
             click_handle = functions[fn_key]["btn"].click(functions[fn_key]["function"], input_combo, output_combo)
             cancel_handles.append(click_handle)
