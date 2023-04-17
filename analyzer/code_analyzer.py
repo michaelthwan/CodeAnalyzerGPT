@@ -45,33 +45,48 @@ class CodeAnalyzerService:
             with open(fp, 'r', encoding='utf-8') as f:
                 file_content = f.read()
 
+            # for each file, ask chatgpt
             prefix = "Please analyze the following files.\n" if index == 0 else ""
             i_say = prefix + f'Please make a summary of the following program file. File name: {os.path.relpath(fp, project_folder)}. Source code: ```{file_content}```'
             i_say_show_user = prefix + f'[{index + 1}/{len(file_manifest)}] Please make a summary of the following program file: {os.path.abspath(fp)}'
-            chatbot.append((i_say_show_user, "[INFO] waiting for ChatGPT's response."))
-            yield chatbot, history, status, pf_md
 
-            # ** gpt request **
-            gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(pf_md, i_say, i_say_show_user, chatbot, history=[])
+            yield from ChatGPTService.call_chatgpt(i_say, i_say_show_user, chatbot, history, status, pf_md)
 
-            chatbot[-1] = (i_say_show_user, gpt_say)
-            history.append(i_say_show_user)
-            history.append(gpt_say)
-            yield chatbot, history, status, pf_md
+            i_say = """
+Please describe each function with format
+
+- <method name>(<input>) -> <output>:
+<description> 
+- <method name>(<input>) -> <output>:
+<description>
+File name: {os.path.relpath(fp, project_folder)}. Source code: ```{file_content}```"""
+            i_say_show_user = f'[{index + 1}/{len(file_manifest)}] Please describe each function: {os.path.abspath(fp)}'
+            yield from ChatGPTService.call_chatgpt(i_say, i_say_show_user, chatbot, history, status, pf_md)
+
+            # chatbot.append((i_say_show_user, "[INFO] waiting for ChatGPT's response."))
+            # yield chatbot, history, status, pf_md
+            # gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(pf_md, i_say, i_say_show_user, chatbot, history=[])
+            # chatbot[-1] = (i_say_show_user, gpt_say)
+            # history.append(i_say_show_user)
+            # history.append(gpt_say)
+            # yield chatbot, history, status, pf_md
+
             time.sleep(2)
 
+        # Overall, ask chatgpt
         all_file = ', '.join([os.path.relpath(fp, project_folder) for index, fp in enumerate(file_manifest)])
         i_say = f'Based on your own analysis above, make a summary of the overall functionality and architecture of the program. Then use a markdown table to explain the functionality of each file (including {all_file}).'
-        chatbot.append((i_say, "[INFO] waiting for ChatGPT's response."))
-        yield chatbot, history, status, pf_md
+        i_say_show_user = i_say
 
-        # ** gpt request **
-        gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(pf_md, i_say, i_say, chatbot, history=history)
+        yield from ChatGPTService.call_chatgpt(i_say, i_say_show_user, chatbot, history, status, pf_md)
+        # chatbot.append((i_say_show_user, "[INFO] waiting for ChatGPT's response."))
+        # yield chatbot, history, status, pf_md
+        # gpt_say = yield from ChatGPTService.predict_no_ui_but_counting_down(pf_md, i_say, i_say, chatbot, history=history)
+        # chatbot[-1] = (i_say_show_user, gpt_say)
+        # history.append(i_say_show_user)
+        # history.append(gpt_say)
+        # yield chatbot, history, status, pf_md
 
-        chatbot[-1] = (i_say, gpt_say)
-        history.append(i_say)
-        history.append(gpt_say)
-        yield chatbot, history, status, pf_md
         res = CodeAnalyzerService.write_results_to_file(history)
         chatbot.append(("Completed? ", res))
         yield chatbot, history, status, pf_md
