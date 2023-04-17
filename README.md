@@ -45,3 +45,6 @@ This will launch the Gradio-based UI, where you can trigger project code scan th
 
 CodeAnalyzerGPT is released under the MIT License.
 
+## Achknowledgement
+
+This repo's gradio UI heavily reference another github project: github.com/binary-husky/chatgpt_academic/
